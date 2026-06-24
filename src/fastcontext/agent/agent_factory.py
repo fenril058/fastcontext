@@ -3,7 +3,7 @@ import os
 from fastcontext.agent.agent import Agent
 from fastcontext.agent.llm import LLM
 from fastcontext.agent.tool.tool import ToolSet
-
+from fastcontext.agent.tool.utils import RG_PATH
 from fastcontext.agent.utils import load_system_prompt
 
 
@@ -26,6 +26,12 @@ def make_fastcontext_agent(
     from fastcontext.agent.tool.glob import GlobTool
     from fastcontext.agent.tool.grep import GrepTool
     from fastcontext.agent.tool.read import ReadTool
+
+    if not RG_PATH:
+        raise RuntimeError(
+            "Grep tool requires ripgrep (rg) to be installed, but it was not found in current environment.\n"
+            "Install it from: https://github.com/BurntSushi/ripgrep"
+        )
 
     toolset = ToolSet([ReadTool(), GlobTool(), GrepTool()], work_dir=work_dir)
     return Agent(
