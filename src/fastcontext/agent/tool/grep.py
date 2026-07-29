@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from .tool import Tool
-from .utils import RG_PATH
+from .utils import RG_PATH, resolve_within
 
 
 class GrepTool(Tool):
@@ -86,13 +86,14 @@ class GrepTool(Tool):
         head_limit = params.get("head_limit")
         multiline = params.get("multiline")
 
-        if not Path(path).resolve().is_relative_to(Path(cwd).resolve()):
+        target = resolve_within(path, cwd)
+        if target is None:
             return f"<system-reminder>Permission error: `{path}` is not within the working directory `{cwd}`</system-reminder>"
 
         output = run_rg(
             RG_PATH,
             pattern,
-            path,
+            str(target),
             cwd=cwd,
             glob=glob,
             output_mode=output_mode,

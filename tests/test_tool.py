@@ -177,3 +177,61 @@ if __name__ == "__main__":
     test_grep_tool()
     test_glob_tool()
     test_read_tool_path_traversal()
+
+
+def _escape_layout(tmp_path):
+    """work_dir is box/; the interpreter sits in box/sub; the secret is outside box."""
+    box = tmp_path / "box"
+    (box / "sub").mkdir(parents=True)
+    (box / "ok.txt").write_text("innocuous\n", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("TOP-SECRET-SENTINEL\n", encoding="utf-8")
+    return box, outside
+
+
+def test_grep_relative_path_cannot_escape_the_work_dir(tmp_path, monkeypatch):
+    """The check and ripgrep must resolve a relative path against the same base.
+
+    The check used the interpreter's cwd while ripgrep used the tool's cwd, so
+    "../outside" was approved as box/outside and then searched as
+    tmp_path/outside.
+    """
+    box, _ = _escape_layout(tmp_path)
+    monkeypatch.chdir(box / "sub")
+
+    params = {"pattern": "TOP-SECRET-SENTINEL", "path": "../outside", "output_mode": "content"}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(box)))
+
+    assert "TOP-SECRET-SENTINEL" not in output, output
+    assert "Permission error" in output
+
+
+def test_read_relative_path_cannot_escape_the_work_dir(tmp_path, monkeypatch):
+    box, _ = _escape_layout(tmp_path)
+    monkeypatch.chdir(box / "sub")
+
+    output = asyncio.run(ReadTool().call(json.dumps({"path": "../outside/secret.txt"}), cwd=str(box)))
+
+    assert "TOP-SECRET-SENTINEL" not in output, output
+    assert "Permission error" in output
+
+
+def test_glob_relative_path_cannot_escape_the_work_dir(tmp_path, monkeypatch):
+    box, _ = _escape_layout(tmp_path)
+    monkeypatch.chdir(box / "sub")
+
+    output = asyncio.run(GlobTool().call(json.dumps({"directory": "../outside", "pattern": "*"}), cwd=str(box)))
+
+    assert "secret.txt" not in output, output
+    assert "Permission error" in output
+
+
+def test_relative_paths_still_resolve_against_the_work_dir(tmp_path, monkeypatch):
+    """Hardening must not break the ordinary case of a path relative to work_dir."""
+    box, _ = _escape_layout(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    output = asyncio.run(ReadTool().call(json.dumps({"path": "ok.txt"}), cwd=str(box)))
+
+    assert "innocuous" in output, output
