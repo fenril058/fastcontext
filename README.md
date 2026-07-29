@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2606.14066"><img src="https://img.shields.io/badge/arXiv-2606.14066-b31b1b.svg" alt="arXiv"></a>
-  <a href="https://github.com/microsoft/fastcontext"><img src="https://img.shields.io/badge/Code-GitHub-181717.svg" alt="Code"></a>
+  <a href="https://github.com/fenril058/fastcontext"><img src="https://img.shields.io/badge/Code-GitHub-181717.svg" alt="Code"></a>
   <img src="https://img.shields.io/badge/Python-3.12%2B-blue.svg" alt="Python 3.12+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
 </p>
@@ -16,6 +16,12 @@
   <a href="#citation">📚 Citation</a>
 </p>
 
+> **About this repository.** `github.com/microsoft/fastcontext`, from which this is derived, is no longer
+> available, and the `microsoft/FastContext-1.0-*` model repositories on Hugging Face no longer resolve.
+> This fork is maintained independently under the MIT licence the code was published under. It is not
+> affiliated with or endorsed by Microsoft, and the authors of the paper are not responsible for changes
+> made here. See [Model weights](#model-weights) for what is still obtainable.
+
 FastContext is a lightweight repository-exploration subagent for coding agents. Instead of letting the main
 coding agent spend its own context window on broad file reads and code searches, the main agent delegates
 a natural-language context query to FastContext. FastContext explores the repository with read-only tools,
@@ -28,7 +34,25 @@ main agent.
 
 ## News
 
-- 🚀 **2026-06-15**: We released the arXiv paper [[📄 arXiv](https://arxiv.org/abs/2606.14066)] and the model weights [[🤗 Model](https://huggingface.co/collections/microsoft/swe-fastcontext)].
+- 🚀 **2026-06-15**: The arXiv paper [[📄 arXiv](https://arxiv.org/abs/2606.14066)] and the model weights were released by the original authors.
+- ⚠️ **2026-07**: The upstream repository and the `microsoft/FastContext-1.0-*` weight repositories became
+  unavailable. The paper remains on arXiv. See [Model weights](#model-weights).
+
+## Model weights
+
+The original `microsoft/FastContext-1.0-*` repositories on Hugging Face no longer resolve, so the weights
+must come from community re-uploads. FastContext talks to any OpenAI-compatible endpoint, so any of these
+work as long as you serve them yourself:
+
+| Source | Notes |
+| --- | --- |
+| `ShaunGves/FastContext-1.0-4B-SFT` | Full-precision SFT weights; the quantisations below derive from it. |
+| `mradermacher/FastContext-1.0-4B-SFT-GGUF` | GGUF for llama.cpp / Ollama. |
+| `mlx-community/FastContext-1.0-4B-SFT-8bit` | MLX, for Apple silicon. |
+| `mitkox/FastContext-1.0-4B-RL-Q4_K_M-GGUF` | RL variant, GGUF. Used in the quick start below. |
+
+These are third-party uploads. Their provenance cannot be checked against the original repositories any
+more, so verify them yourself before trusting them in anything that matters.
 
 
 ## Overview
@@ -272,18 +296,19 @@ uv run --group benchmark python benchmark/evaluation/run_score.py \
 
 ## Training and Serving
 
-The `training/` directory contains scripts used for the SFT and RL experiments described in the paper.
-These scripts assume a research training environment with external model checkpoints, datasets, and cluster
-settings; treat paths and launcher options as examples to adapt.
+The SFT and RL scripts described in the paper, and the example serving manifests, are **not present in this
+repository**. They were added in `9748703` and removed again in `3027411` ("cleanup") before the upstream
+repository became unavailable, and the README was never updated to match.
 
-```text
-training/
-  fastcontext-sft/     Supervised fine-tuning scripts and data utilities
-  fastcontext-rl/      Reinforcement-learning scripts and reward utilities
+The 30 removed files are still reachable in this repository's git history if you need them:
+
+```bash
+git show 3027411 --stat -- training serving   # what was removed (30 files, 3525 lines)
+git checkout 3027411^ -- training serving     # restore them into the working tree
 ```
 
-The `serving/` directory contains example manifests and API checks for serving FastContext-compatible
-models behind an OpenAI-compatible endpoint.
+Treat them as unmaintained research code: they assume a cluster environment with external checkpoints,
+datasets, and launcher settings, and they have never been exercised by this fork.
 
 ## Repository Layout
 
@@ -308,8 +333,7 @@ benchmark/
   swebench/                      SWE-bench-style standalone exploration runner
 
 prompts/                         Mini-SWE-Agent prompt configs with FastContext integration
-training/                        SFT and RL training scripts
-serving/                         Example serving manifests and API checks
+skills/                          Agent skill definition for invoking the CLI
 tests/                           Unit and integration-style tests
 figures/                         README and paper figures
 ```
