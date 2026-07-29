@@ -11,6 +11,15 @@ class LLMAPIError(Exception):
     """Raised when a chat completion call fails, whatever the provider."""
 
 
+class LLMConfigError(LLMAPIError):
+    """Raised when the environment configures the client incorrectly.
+
+    Separate from LLMAPIError so callers can tell "you set this wrong" apart
+    from "the endpoint failed"; still a subclass so the agent loop's existing
+    handling keeps working.
+    """
+
+
 def _extra_body_from_env() -> dict | None:
     """Provider-specific request fields, supplied explicitly rather than guessed.
 
@@ -26,9 +35,9 @@ def _extra_body_from_env() -> dict | None:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise LLMAPIError(f"FC_EXTRA_BODY is not valid JSON: {e}") from e
+        raise LLMConfigError(f"FC_EXTRA_BODY is not valid JSON: {e}") from e
     if not isinstance(parsed, dict):
-        raise LLMAPIError(f"FC_EXTRA_BODY must be a JSON object, got {type(parsed).__name__}.")
+        raise LLMConfigError(f"FC_EXTRA_BODY must be a JSON object, got {type(parsed).__name__}.")
     return parsed
 
 

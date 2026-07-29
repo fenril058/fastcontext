@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from fastcontext.agent.context import Context
-from fastcontext.agent.llm import LLM, Message, LLMAPIError
+from fastcontext.agent.llm import LLM, LLMAPIError, LLMConfigError, Message
 from fastcontext.agent.tool import ToolSet
 from fastcontext.agent.utils import get_final_answer
 
@@ -59,6 +59,10 @@ class Agent:
                     messages=self.context.get_messages(),
                     tools=self.toolset.schema_list(),
                 )
+            except LLMConfigError:
+                # The environment is wrong, not the endpoint. Retrying or
+                # returning this as an answer would hide the operator's mistake.
+                raise
             except LLMAPIError as e:
                 error_msg = f"LLM API call failed. So stopping the agent.\nError details:\n{str(e)}"
                 await self.context.add(Message(role="assistant", content=error_msg))

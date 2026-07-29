@@ -92,3 +92,16 @@ async def test_malformed_extra_body_is_reported_clearly(value, monkeypatch):
 
     with pytest.raises(LLMAPIError, match="FC_EXTRA_BODY"):
         await llm.acall(messages=[{"role": "user", "content": "hi"}], tools=None)
+
+
+async def test_config_errors_are_distinguishable_from_api_failures(monkeypatch):
+    """The CLI exits non-zero on these; it must not treat them as an answer."""
+    from fastcontext.agent.llm import LLMConfigError
+
+    monkeypatch.setenv("FC_EXTRA_BODY", "{not json")
+    llm = LLM(model="anything", api_key="unused", base_url="http://127.0.0.1:1/v1")
+
+    with pytest.raises(LLMConfigError):
+        await llm.acall(messages=[{"role": "user", "content": "hi"}], tools=None)
+
+    assert issubclass(LLMConfigError, LLMAPIError)
