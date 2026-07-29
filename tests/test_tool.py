@@ -340,3 +340,34 @@ def test_tool_descriptions_do_not_promise_absent_capabilities():
     # glob.py never asks ripgrep to sort, and there is no Agent tool to delegate to.
     assert "sorted by modification time" not in glob_description
     assert "Agent tool" not in glob_description
+
+
+def test_grep_reports_an_invalid_regex_as_a_failure(tmp_path):
+    """rg exits 2 on error and 1 on no match; both used to return stderr as output."""
+    (tmp_path / "a.txt").write_text("sentinel\n", encoding="utf-8")
+
+    output = asyncio.run(
+        GrepTool().call(json.dumps({"pattern": "(unclosed", "path": str(tmp_path)}), cwd=str(tmp_path))
+    )
+
+    assert "<system-reminder>" in output, output
+    assert "Grep failed" in output
+
+
+def test_grep_no_match_is_not_a_failure(tmp_path):
+    (tmp_path / "a.txt").write_text("sentinel\n", encoding="utf-8")
+
+    output = asyncio.run(
+        GrepTool().call(json.dumps({"pattern": "nothinghere", "path": str(tmp_path)}), cwd=str(tmp_path))
+    )
+
+    assert output == "No matches found"
+
+
+def test_glob_reports_a_bad_pattern_as_a_failure(tmp_path):
+    output = asyncio.run(
+        GlobTool().call(json.dumps({"directory": str(tmp_path), "pattern": "["}), cwd=str(tmp_path))
+    )
+
+    assert "<system-reminder>" in output, output
+    assert "Glob failed" in output
