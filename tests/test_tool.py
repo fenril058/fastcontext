@@ -118,6 +118,30 @@ def test_grep_context_count_rejects_non_finite_numbers(tmp_path):
     assert "sentinel" in output
 
 
+def test_grep_count_mode_is_wired_up(tmp_path):
+    """The schema offers "count"; the implementation checked for "count_matches"."""
+    (tmp_path / "a.txt").write_text("sentinel\nsentinel\nother\n", encoding="utf-8")
+
+    params = {"pattern": "sentinel", "path": str(tmp_path), "output_mode": "count"}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+
+    # --count-matches reports the match total per file, not the matching lines.
+    assert output.strip().endswith(":2"), output
+
+
+def test_grep_default_output_mode_is_content(tmp_path):
+    """grep.md and the parameter schema must agree with what the tool does."""
+    (tmp_path / "a.txt").write_text("sentinel line\n", encoding="utf-8")
+
+    params = {"pattern": "sentinel", "path": str(tmp_path)}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert "sentinel line" in output
+
+    schema = GrepTool().schema()["function"]["parameters"]["properties"]
+    assert 'Defaults to "content"' in schema["output_mode"]["description"]
+
+
 def test_read_tool_path_traversal():
     read = ReadTool()
     cwd = "/tmp/"

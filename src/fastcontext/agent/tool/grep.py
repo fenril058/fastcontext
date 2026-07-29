@@ -27,7 +27,7 @@ class GrepTool(Tool):
             "output_mode": {
                 "type": "string",
                 "enum": ["content", "files_with_matches", "count"],
-                "description": 'Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".',
+                "description": 'Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "content".',
             },
             "-B": {
                 "type": "number",
@@ -56,7 +56,7 @@ class GrepTool(Tool):
             "head_limit": {
                 "type": "number",
                 "minimum": 0,
-                "description": 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). When unspecified, shows all results from ripgrep.',
+                "description": 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Output is capped at 100 lines regardless; head_limit can only lower that.',
             },
             "multiline": {
                 "type": "boolean",
@@ -153,7 +153,7 @@ def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
             command.append("-n")
     elif output_mode == "files_with_matches":
         command.append("--files-with-matches")
-    elif output_mode == "count_matches":
+    elif output_mode == "count":
         command.append("--count-matches")
 
     # --heading and --color never
