@@ -50,6 +50,16 @@ build-backend = "uv_build"
 [project.scripts]
 fastcontext = "fastcontext.cli:main"
 
+[tool.pytest.ini_options]
+# Without testpaths, pytest also collects third_party/mini-swe-agent and aborts
+# during collection because that submodule's own dependencies are not installed.
+testpaths = ["tests"]
+# The test suite writes plain `async def test_*` without @pytest.mark.asyncio.
+asyncio_mode = "auto"
+markers = [
+    "requires_llm: needs a live OpenAI-compatible endpoint (FC_BASE_URL / FC_MODEL)",
+]
+
 [tool.isort]
 profile = "black"
 line_length = 119
