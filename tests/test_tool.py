@@ -371,3 +371,26 @@ def test_glob_reports_a_bad_pattern_as_a_failure(tmp_path):
 
     assert "<system-reminder>" in output, output
     assert "Glob failed" in output
+
+
+def test_a_long_grep_error_is_not_truncated_into_nonsense(tmp_path, monkeypatch):
+    """A multi-line diagnostic must keep its closing envelope."""
+    import fastcontext.agent.tool.grep as grep_module
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 2, stdout="", stderr="\n".join(f"line {i}" for i in range(300)))
+
+    monkeypatch.setattr(grep_module.subprocess, "run", fake_run)
+    output = asyncio.run(GrepTool().call(json.dumps({"pattern": "x", "path": str(tmp_path)}), cwd=str(tmp_path)))
+
+    assert output.startswith("<system-reminder>")
+    assert output.endswith("</system-reminder>")
+    assert "Results truncated" not in output
+
+
+def test_glob_no_match_is_not_a_failure(tmp_path):
+    output = asyncio.run(
+        GlobTool().call(json.dumps({"directory": str(tmp_path), "pattern": "*.nothing"}), cwd=str(tmp_path))
+    )
+
+    assert output == "No files found"

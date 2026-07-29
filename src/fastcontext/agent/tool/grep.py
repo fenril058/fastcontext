@@ -113,6 +113,12 @@ class GrepTool(Tool):
         if not output:
             return "No matches found"
 
+        if output.startswith("<system-reminder>"):
+            # Diagnostics are not results. Truncating a long ripgrep error at
+            # 100 lines would strip the closing tag and leave the model with an
+            # unterminated envelope followed by "Results truncated".
+            return output
+
         limit = 100
         if head_limit is not None:
             if head_limit < limit and head_limit > 0:
