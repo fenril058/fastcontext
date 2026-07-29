@@ -30,8 +30,9 @@ through prompt injection from a file in the repository being explored.
 
 ## Known and accepted
 
-These are real, understood, and deliberately not fixed. Reporting them is not wasted effort — say so if
-you think the reasoning is wrong — but they will not be treated as new findings.
+These are real, understood, and deliberately not fixed. They will not be treated as new findings, but the
+reasoning below is a judgement, not a proof — say so if you think it is wrong. A variant with weaker
+prerequisites than the ones described here is in scope and worth reporting.
 
 **Symlink replacement between the check and the read.** `resolve_within` in
 `src/fastcontext/agent/tool/utils.py` resolves a path, follows any symlinks, and confirms the result sits
@@ -39,19 +40,27 @@ inside the working directory. The file is opened, or handed to `ripgrep`, some m
 who can write to the tree *while a search is running* could swap a directory component for a symlink
 pointing outside in that window.
 
-Not fixed because closing it properly means abandoning paths-as-strings for file descriptors and
-`openat`-style traversal, and `Grep` passes a path to `ripgrep`, at which point this code has no control
-left. A partial fix would mostly buy the false impression that the gap is closed. The prerequisite — an
-attacker with concurrent write access to the repository you are exploring — is also a different situation
-from the one this tool is built for.
+Not fixed because every option is substantially more involved than it looks. Re-checking after the fact
+narrows the window without closing it, and cannot undo a disclosure that already happened. Doing it
+properly means abandoning paths-as-strings for file descriptors and `openat`-style traversal. `Grep` is
+harder still, since it hands a path to a separate process — not impossible (one could keep an anchored
+directory descriptor open across the fork and address the target through it, sandbox `ripgrep`, or search
+a snapshot) but non-portable and well beyond a targeted fix. The prerequisite — an attacker with
+concurrent write access to the repository you are exploring — is also a different situation from the one
+this tool is built for.
 
-**Blocking metadata calls on the event loop.** `resolve_within` and `Path.is_dir` run synchronously in the
-tool coroutines rather than on a worker thread. On a slow or network filesystem they can stall the whole
-agent loop, including sibling tool calls in the same turn.
+If you have a portable approach that closes it, that is worth an issue.
 
-Not fixed because these are bounded `stat` operations, microseconds on a local disk — orders of magnitude
-below the `subprocess.run` calls that were moved to threads for exactly this reason. Moving them too would
-add machinery in four places for no measurable benefit on the filesystems this tool is actually pointed at.
+**Blocking path resolution on the event loop.** `resolve_within` — and `Path.is_dir` in Glob, `Path.exists`
+in Read — run synchronously in the tool coroutines rather than on a worker thread. On a slow or network
+filesystem they can stall the whole agent loop, including sibling tool calls in the same turn. That much is
+straightforwardly true.
+
+Not fixed because the work is normally small: path resolution and one or two metadata lookups, against the
+`subprocess.run` calls that were moved to threads because they can run for seconds. `Path.resolve` is not
+strictly constant-time — it scales with path depth and symlink chains — so this is a judgement that the
+common case dominates, not a proof. It has not been measured on a network filesystem. If you have a
+workload where it matters, that measurement would be the thing to bring.
 
 ## Out of scope
 
