@@ -4,6 +4,7 @@ from pathlib import Path
 import aiofiles
 
 from .tool import Tool
+from .utils import resolve_within
 
 MAX_LINE = 2000
 MAX_LINE_LENGTH = 2000
@@ -41,10 +42,11 @@ class ReadTool(Tool):
             return "<system-reminder>Error: file path is required</system-reminder>"
 
         cwd = kwargs.get("cwd", Path.cwd().as_posix())
-        if not Path(file_path).resolve().is_relative_to(Path(cwd).resolve()):
+        target = resolve_within(file_path, cwd)
+        if target is None:
             return f"<system-reminder>Permission error: `{file_path}` is not within the working directory `{cwd}`</system-reminder>"
 
-        if not Path(file_path).exists():
+        if not target.exists():
             return f"<system-reminder>Error: {file_path} does not exist</system-reminder>"
 
         if not isinstance(offset, int) or offset <= 0:
@@ -53,7 +55,7 @@ class ReadTool(Tool):
         if limit is not None and (not isinstance(limit, int) or limit <= 0):
             return "<system-reminder>Error: limit must be a positive integer</system-reminder>"
 
-        async with aiofiles.open(file_path, mode="r", encoding="utf-8", errors="replace") as f:
+        async with aiofiles.open(target, mode="r", encoding="utf-8", errors="replace") as f:
             raw_lines = await f.readlines()
 
         if len(raw_lines) == 0:

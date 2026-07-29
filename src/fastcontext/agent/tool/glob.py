@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from .tool import Tool
-from .utils import RG_PATH
+from .utils import RG_PATH, resolve_within
 
 
 def run(directory: str, pattern: str, cwd: str) -> str:
@@ -49,13 +49,13 @@ class GlobTool(Tool):
         directory = params.get("directory", cwd)
         pattern = params.get("pattern")
 
-        p = Path(directory)
-        if not p.is_dir():
-            return f"<system-reminder>Error: directory `{directory}` does not exist or is not a directory.</system-reminder>"
-        if not p.resolve().is_relative_to(Path(cwd).resolve()):
+        target = resolve_within(directory, cwd)
+        if target is None:
             return f"<system-reminder>Permission error: `{directory}` is not within the working directory `{cwd}`</system-reminder>"
+        if not target.is_dir():
+            return f"<system-reminder>Error: directory `{directory}` does not exist or is not a directory.</system-reminder>"
 
-        output = run(directory, pattern, cwd=cwd)
+        output = run(str(target), pattern, cwd=cwd)
 
         limit = 100
         matched_files = output.splitlines()
