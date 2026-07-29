@@ -1,4 +1,4 @@
-from fastcontext.agent.utils import get_final_answer
+from fastcontext.agent.utils import get_final_answer, parse_citations
 
 _REAL_FILE = __file__
 
@@ -51,6 +51,28 @@ def test_mix_valid_and_invalid_files():
     print(result)
     assert f"{_REAL_FILE}:1 (kept)" in result
     assert "/nonexistent/file.py" not in result
+
+
+def test_missing_final_answer_block_returns_the_text():
+    text = "I could not find anything relevant."
+    assert get_final_answer(text) == text
+
+
+def test_missing_final_answer_block_is_stripped():
+    assert get_final_answer("  no block here  \n") == "no block here"
+
+
+def test_empty_content_is_tolerated():
+    # Agent.run passes Message.content straight through, and it is None when
+    # the model emits only reasoning.
+    assert get_final_answer(None) == ""
+    assert get_final_answer("") == ""
+
+
+def test_parse_citations_always_returns_a_list():
+    assert parse_citations("no block here") == []
+    assert parse_citations(_wrap("not a citation line")) == []
+    assert isinstance(parse_citations(_wrap(f"{_REAL_FILE}:1")), list)
 
 
 if __name__ == "__main__":
