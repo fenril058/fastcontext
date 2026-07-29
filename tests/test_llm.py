@@ -1,32 +1,36 @@
 import os
 
+import pytest
+
 from fastcontext.agent.llm import LLM
+
+pytestmark = pytest.mark.requires_llm
+
+
+def _llm(**kwargs) -> LLM:
+    return LLM(
+        model=os.getenv("FC_MODEL") or os.getenv("MODEL"),
+        api_key=os.getenv("FC_API_KEY") or os.getenv("API_KEY"),
+        base_url=os.getenv("FC_BASE_URL") or os.getenv("BASE_URL"),
+        **kwargs,
+    )
 
 
 async def test_llm():
-    llm = LLM(
-        model=os.getenv("MODEL"),
-        api_key=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
-    )
+    llm = _llm()
     messages = [
         {"role": "user", "content": "Hello, how are you?"},
     ]
-    msg = await llm.acall(
-        messages=messages,
-        tools=None,
-    )
-    print(msg.to_dict())
+    msg = await llm.acall(messages=messages, tools=None)
+
+    assert msg.role == "assistant"
+    assert msg.content
 
 
 async def test_llm_tools():
-    llm = LLM(
-        model=os.getenv("MODEL"),
-        api_key=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
-        temperature=0.0,
-        max_tokens=1024,
-    )
+    from fastcontext.agent.tool.read import ReadTool
+
+    llm = _llm(temperature=0.0, max_tokens=1024)
     messages = [
         {"role": "system", "content": "You are a powerful AI agent."},
         {
@@ -34,24 +38,14 @@ async def test_llm_tools():
             "content": "read file content from ./test_llm.py and ./README.md",
         },
     ]
-    from fastcontext.agent.tool.read import ReadFileTool
+    msg = await llm.acall(messages=messages, tools=[ReadTool().schema()])
 
-    msg = await llm.acall(
-        messages=messages,
-        tools=[ReadFileTool().schema()],
-        debug=True,
-    )
-    print(msg.to_dict())
+    assert msg.tool_calls
+    assert all(c.name == "Read" for c in msg.tool_calls)
 
 
 async def test_llm_tools_result():
-    llm = LLM(
-        model=os.getenv("MODEL"),
-        api_key=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
-        temperature=0.0,
-        max_tokens=1024,
-    )
+    llm = _llm(temperature=0.0, max_tokens=1024)
     messages = [
         {"role": "system", "content": "You are a powerful AI agent."},
         {"role": "user", "content": "please show me the current time"},
@@ -83,15 +77,7 @@ async def test_llm_tools_result():
             "name": "bash",
         },
     ]
-    msg = await llm.acall(
-        messages=messages,
-        tools=None,
-    )
-    print(msg.to_dict())
+    msg = await llm.acall(messages=messages, tools=None)
 
-
-if __name__ == "__main__":
-    import asyncio
-
-    # asyncio.run(test_llm())
-    asyncio.run(test_llm_tools())
+    assert msg.role == "assistant"
+    assert msg.content
