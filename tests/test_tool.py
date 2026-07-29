@@ -130,13 +130,26 @@ def test_grep_count_mode_is_wired_up(tmp_path):
 
 
 def test_grep_default_output_mode_is_content(tmp_path):
-    """grep.md and the parameter schema must agree with what the tool does."""
-    (tmp_path / "a.txt").write_text("sentinel line\n", encoding="utf-8")
+    """Omitting output_mode must behave exactly like asking for content.
 
-    params = {"pattern": "sentinel", "path": str(tmp_path)}
-    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+    It used to fall through to bare ripgrep output, which carries no line
+    numbers when stdout is captured rather than attached to a terminal — so
+    the default call shape produced output no citation could be built from.
+    """
+    (tmp_path / "a.txt").write_text("aaa\nbbb sentinel\nccc\n", encoding="utf-8")
 
-    assert "sentinel line" in output
+    omitted = asyncio.run(
+        GrepTool().call(json.dumps({"pattern": "sentinel", "path": str(tmp_path)}), cwd=str(tmp_path))
+    )
+    explicit = asyncio.run(
+        GrepTool().call(
+            json.dumps({"pattern": "sentinel", "path": str(tmp_path), "output_mode": "content"}),
+            cwd=str(tmp_path),
+        )
+    )
+
+    assert omitted == explicit
+    assert "2:bbb sentinel" in omitted, omitted
 
     schema = GrepTool().schema()["function"]["parameters"]["properties"]
     assert 'Defaults to "content"' in schema["output_mode"]["description"]

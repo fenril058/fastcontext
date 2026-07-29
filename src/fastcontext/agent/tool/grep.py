@@ -56,7 +56,7 @@ class GrepTool(Tool):
             "head_limit": {
                 "type": "number",
                 "minimum": 0,
-                "description": 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Output is capped at 100 lines regardless; head_limit can only lower that.',
+                "description": 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Output is capped at 100 lines regardless; only a head_limit between 1 and 99 lowers that, and any other value leaves the cap at 100.',
             },
             "multiline": {
                 "type": "boolean",
@@ -73,7 +73,10 @@ class GrepTool(Tool):
         pattern = params.get("pattern")
         path = params.get("path", cwd)
         glob = params.get("glob")
-        output_mode = params.get("output_mode")
+        # Omitting the mode used to fall through to bare ripgrep output, which
+        # carries no line numbers when stdout is captured. Citations are the
+        # point of this tool, so the documented default has to be real.
+        output_mode = params.get("output_mode") or "content"
         before_context = params.get("-B")
         after_context = params.get("-A")
         context = params.get("-C", 3)
