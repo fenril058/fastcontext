@@ -53,10 +53,17 @@ def load_system_prompt(work_dir: str) -> str:
     )
 
 
-def parse_citations(text: str) -> list:
-    final_answer = re.search(r"<final_answer>(.*?)</final_answer>", text, re.DOTALL)
+FINAL_ANSWER_RE = re.compile(r"<final_answer>(.*?)</final_answer>", re.DOTALL)
+
+
+def parse_citations(text: str) -> list[dict]:
+    """Parse the citation entries out of a <final_answer> block.
+
+    Returns an empty list when the block is absent or holds no parseable entry.
+    """
+    final_answer = FINAL_ANSWER_RE.search(text)
     if final_answer is None:
-        return {"final_answer": text.strip(), "citations": []}
+        return []
 
     entries = final_answer.group(1).strip().splitlines()
 
@@ -108,10 +115,15 @@ def format_citations(citations: list, validate: bool = True) -> str:
     return "<final_answer>\n" + "\n".join(formatted) + "\n</final_answer>"
 
 
-def get_final_answer(text: str) -> str:
-    citations = parse_citations(text)
-    final_answer = format_citations(citations)
-    return final_answer
+def get_final_answer(text: str | None) -> str:
+    if not text:
+        return ""
+    if FINAL_ANSWER_RE.search(text) is None:
+        # --citation is documented as returning the block "when present". The
+        # explorer does not always emit one, so fall back to its own text
+        # instead of handing back an empty block.
+        return text.strip()
+    return format_citations(parse_citations(text))
 
 
 if __name__ == "__main__":
