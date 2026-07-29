@@ -273,3 +273,39 @@ def test_grep_reports_absolute_paths(tmp_path, monkeypatch):
     )
 
     assert str(tmp_path / "a.txt") in output, output
+def test_grep_passes_a_timeout_to_the_subprocess(tmp_path, monkeypatch):
+    """The outer asyncio.wait_for cannot kill ripgrep; only this can."""
+    import fastcontext.agent.tool.grep as grep_module
+
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(grep_module.subprocess, "run", fake_run)
+    asyncio.run(GrepTool().call(json.dumps({"pattern": "x", "path": str(tmp_path)}), cwd=str(tmp_path)))
+
+    assert seen.get("timeout") == grep_module.SUBPROCESS_TIMEOUT
+    assert seen["timeout"] > 0
+
+
+def test_grep_reports_a_timeout_rather_than_raising(tmp_path, monkeypatch):
+    import fastcontext.agent.tool.grep as grep_module
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs.get("timeout", 0))
+
+    monkeypatch.setattr(grep_module.subprocess, "run", fake_run)
+    output = asyncio.run(GrepTool().call(json.dumps({"pattern": "x", "path": str(tmp_path)}), cwd=str(tmp_path)))
+
+    assert "timed out" in output
+    assert "system-reminder" in output
+
+
+def test_subprocess_timeout_stays_positive():
+    """SUBPROCESS_TIMEOUT is derived from MAX_TOOLRUN_TIMEOUT; the arithmetic is clamped."""
+    from fastcontext.agent.tool.tool import MAX_TOOLRUN_TIMEOUT, SUBPROCESS_TIMEOUT
+
+    assert SUBPROCESS_TIMEOUT >= 1
+    assert SUBPROCESS_TIMEOUT <= MAX_TOOLRUN_TIMEOUT

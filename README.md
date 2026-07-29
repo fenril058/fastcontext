@@ -78,9 +78,9 @@ FastContext separates repository exploration from solving:
 
 - 🧭 **Delegated exploration**: the main agent asks FastContext for repository context before editing or answering.
 - 🔒 **Read-only tools**: FastContext uses `Read`, `Glob`, and `Grep`; it does not modify files.
-- ⚙️ **Batched tool calling**: the model can request several reads and searches in one turn. Note that
-  `ToolSet.call` currently executes them sequentially — the paper describes parallel execution, but the
-  `asyncio.create_task` that would provide it is commented out in `tool/tool.py`.
+- ⚙️ **Parallel tool calling**: independent reads and searches requested in the same turn run concurrently.
+  Each call is bounded by its own timeout rather than a shared one, so a slow search does not hold up its
+  siblings.
 - 📌 **Compact evidence**: the final response is a short `<final_answer>` block with file paths and line ranges.
 - 🧠 **Trainable explorers**: the paper trains 4B-30B exploration models with SFT and task-grounded RL.
 

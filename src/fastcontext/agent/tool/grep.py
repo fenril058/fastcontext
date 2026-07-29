@@ -1,8 +1,9 @@
+import asyncio
 import json
 import subprocess
 from pathlib import Path
 
-from .tool import Tool
+from .tool import SUBPROCESS_TIMEOUT, Tool
 from .utils import RG_PATH, resolve_within
 
 
@@ -90,7 +91,11 @@ class GrepTool(Tool):
         if target is None:
             return f"<system-reminder>Permission error: `{path}` is not within the working directory `{cwd}`</system-reminder>"
 
-        output = run_rg(
+        # to_thread keeps the blocking subprocess off the event loop. Without it
+        # the outer asyncio.wait_for in ToolSet.call cannot fire, and sibling
+        # tool calls in the same turn cannot make progress.
+        output = await asyncio.to_thread(
+            run_rg,
             RG_PATH,
             pattern,
             str(target),
@@ -175,7 +180,18 @@ def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
 
     cwd = kwargs.get("cwd", str(Path.cwd()))
 
-    output = subprocess.run(command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try:
+        output = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=SUBPROCESS_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return f"<system-reminder>Grep timed out after {SUBPROCESS_TIMEOUT}s. Narrow the pattern, path, or glob.</system-reminder>"
 
     if output.returncode == 0:
         output_text = (

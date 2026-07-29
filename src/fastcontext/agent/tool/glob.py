@@ -1,8 +1,9 @@
+import asyncio
 import json
 import subprocess
 from pathlib import Path
 
-from .tool import Tool
+from .tool import SUBPROCESS_TIMEOUT, Tool
 from .utils import RG_PATH, resolve_within
 
 
@@ -11,7 +12,7 @@ def run(directory: str, pattern: str, cwd: str) -> str:
     # begins with a dash from being parsed as a ripgrep flag. See run_rg in
     # grep.py for why that matters.
     command = [RG_PATH, "--no-config", "--files", f"--glob={pattern}", "--", directory]
-    timeout = 10  # seconds
+    timeout = SUBPROCESS_TIMEOUT
     try:
         output = subprocess.run(
             command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout
@@ -55,7 +56,7 @@ class GlobTool(Tool):
         if not target.is_dir():
             return f"<system-reminder>Error: directory `{directory}` does not exist or is not a directory.</system-reminder>"
 
-        output = run(str(target), pattern, cwd=cwd)
+        output = await asyncio.to_thread(run, str(target), pattern, cwd=cwd)
 
         limit = 100
         matched_files = output.splitlines()
