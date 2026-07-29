@@ -90,13 +90,7 @@ class LLM:
             print("LLM Payload:", payload)
 
         try:
-            if "claude" in self.model:
-                # Use the custom API call for claude models
-                from fastcontext.agent.llm_api import call_completion
-
-                response = call_completion(model=self.model, messages=messages, tools=tools)
-            else:
-                response = await self.client.chat.completions.create(**payload)
+            response = await self.client.chat.completions.create(**payload)
             usage = response.usage.to_dict()
             content = None
             reasoning_content = None
