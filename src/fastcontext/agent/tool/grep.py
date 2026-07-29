@@ -113,6 +113,12 @@ class GrepTool(Tool):
         if not output:
             return "No matches found"
 
+        if output.startswith("<system-reminder>"):
+            # Diagnostics are not results. Truncating a long ripgrep error at
+            # 100 lines would strip the closing tag and leave the model with an
+            # unterminated envelope followed by "Results truncated".
+            return output
+
         limit = 100
         if head_limit is not None:
             if head_limit < limit and head_limit > 0:
@@ -193,12 +199,12 @@ def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
     except subprocess.TimeoutExpired:
         return f"<system-reminder>Grep timed out after {SUBPROCESS_TIMEOUT}s. Narrow the pattern, path, or glob.</system-reminder>"
 
+    # ripgrep exits 0 on a match, 1 on no match, and 2 on an actual error. The
+    # previous code collapsed 1 and 2 together and returned stderr as if it
+    # were search output, so an unparseable regex reached the model looking
+    # like a result.
     if output.returncode == 0:
-        output_text = (
-            output.stdout if isinstance(output.stdout, str) else output.stdout.decode("utf-8", errors="replace")
-        )
-    else:
-        output_text = (
-            output.stderr if isinstance(output.stderr, str) else output.stderr.decode("utf-8", errors="replace")
-        )
-    return output_text
+        return output.stdout
+    if output.returncode == 1:
+        return ""
+    return f"<system-reminder>Grep failed: {output.stderr.strip()}</system-reminder>"

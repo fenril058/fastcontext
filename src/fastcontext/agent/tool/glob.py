@@ -20,10 +20,12 @@ def run(directory: str, pattern: str, cwd: str) -> str:
     except subprocess.TimeoutExpired:
         return f"<system-reminder>Glob timed out after {timeout}s</system-reminder>"
 
+    # Same exit-code contract as Grep: 0 matched, 1 matched nothing, 2 failed.
     if output.returncode == 0:
-        return output.stdout if isinstance(output.stdout, str) else output.stdout.decode("utf-8", errors="replace")
-    else:
-        return output.stderr if isinstance(output.stderr, str) else output.stderr.decode("utf-8", errors="replace")
+        return output.stdout
+    if output.returncode == 1:
+        return ""
+    return f"<system-reminder>Glob failed: {output.stderr.strip()}</system-reminder>"
 
 
 class GlobTool(Tool):
