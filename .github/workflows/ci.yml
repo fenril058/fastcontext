@@ -20,18 +20,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.12", "3.13"]
-        exclude:
-          # Windows exists in the matrix to protect the shutil.which/UTF-8 work
-          # from #23; one interpreter is enough to catch a regression there.
+        os: [ubuntu-latest]
+        # requires-python is >=3.12,<4.0, so every supported minor is covered.
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # Windows exists to protect the shutil.which/UTF-8 work from #23; one
+          # interpreter is enough to catch a regression there.
           - os: windows-latest
-            python-version: "3.13"
+            python-version: "3.12"
 
     steps:
       # The mini-swe-agent submodule is not needed: testpaths keeps pytest out
       # of third_party, and checking it out only slows the job down.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: false
 
@@ -48,10 +49,16 @@ jobs:
         # Glob tests shell out to it directly.
         run: rg --version
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+          # Without this the matrix is decorative: every job would silently use
+          # the runner's default interpreter.
+          python-version: ${{ matrix.python-version }}
+
+      - name: Confirm the interpreter the matrix asked for
+        run: uv run python -c "import sys; print(sys.version)"
 
       - name: Install dependencies
         run: uv sync --locked --group dev
@@ -64,11 +71,11 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: false
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock

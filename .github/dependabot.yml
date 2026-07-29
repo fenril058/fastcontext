@@ -9,8 +9,10 @@ updates:
       interval: monthly
     open-pull-requests-limit: 5
     groups:
-      # One PR per month for routine bumps. Security updates ignore grouping
-      # and limits, so they still arrive individually and immediately.
+      # One PR per month for routine bumps. Without applies-to:
+      # security-updates, this grouping and open-pull-requests-limit cover
+      # version updates only; alert-triggered security updates are raised
+      # separately, under their own limit.
       all-dependencies:
         patterns: ["*"]
 
