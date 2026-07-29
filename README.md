@@ -327,6 +327,16 @@ Treat them as unmaintained research code: they assume a cluster environment with
 datasets, and launcher settings — the scripts reference `/mnt/local` paths, Ray cluster startup, and
 Kubernetes manifests. Nothing in this fork maintains or tests them.
 
+`benchmark/evaluation/query_gen.py`, which generated exploration queries for the evaluation set, was
+removed for the same reason as it was never usable: it imported an `apis` module that no commit in this
+repository's history ever contained. It is recoverable the same way, if you want to reconstruct that
+missing dependency yourself:
+
+```bash
+git log --diff-filter=D --oneline -- benchmark/evaluation/query_gen.py   # find the removing commit
+git show <that commit>^:benchmark/evaluation/query_gen.py                # read it
+```
+
 ## Repository Layout
 
 ```text
@@ -347,6 +357,7 @@ src/fastcontext/
 benchmark/
   environment/                   Docker environment helpers
   evaluation/                    End-to-end Mini-SWE-Agent runners and scoring utilities
+                                 (query_gen.py was removed; see below)
   swebench/                      SWE-bench-style standalone exploration runner
 
 prompts/                         Mini-SWE-Agent prompt configs with FastContext integration
