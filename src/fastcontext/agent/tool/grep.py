@@ -119,10 +119,7 @@ class GrepTool(Tool):
             # unterminated envelope followed by "Results truncated".
             return output
 
-        limit = 100
-        if head_limit is not None:
-            if head_limit < limit and head_limit > 0:
-                limit = head_limit
+        limit = _head_limit(head_limit, MAX_OUTPUT_LINES)
 
         lines = output.splitlines()
         if len(lines) > limit:
@@ -130,6 +127,26 @@ class GrepTool(Tool):
             truncated_hit = f"Results truncated to first {limit} lines"
             output += f"\n{truncated_hit}"
         return output
+
+
+MAX_OUTPUT_LINES = 100
+
+
+def _head_limit(value, cap: int) -> int:
+    """Clamp a model-supplied head_limit to (0, cap].
+
+    Booleans are rejected explicitly: `isinstance(True, int)` holds in Python,
+    so `head_limit: true` used to set the limit to True, silently cut the
+    results to a single line, and tell the model "Results truncated to first
+    True lines".
+    """
+    if value is None or isinstance(value, bool):
+        return cap
+    try:
+        n = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return cap
+    return n if 0 < n < cap else cap
 
 
 def _context_flag(value) -> str | None:
