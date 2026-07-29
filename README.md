@@ -18,8 +18,10 @@
 
 > **About this repository.** The work this is derived from has been withdrawn by its authors:
 > `github.com/microsoft/fastcontext` returns 404, the `microsoft/FastContext-1.0-*` model repositories on
-> Hugging Face return 401, and arXiv v4 is a withdrawal (earlier versions remain readable). No reason was published
-> for any of it. This fork is maintained independently under the MIT licence the code was published under.
+> Hugging Face return 401, and arXiv v4 is a withdrawal (earlier versions remain readable). The withdrawal
+> comment cites "product IP issues" and says the article "needs to be withdrawn and re-approved"; no reason
+> was published for the repository or the model repositories.
+> This fork is maintained independently under the MIT licence the code was published under.
 > It is not affiliated with or endorsed by Microsoft, and the paper's authors are not responsible for
 > anything changed here. See [Model weights](#model-weights) for what is still obtainable.
 
@@ -37,7 +39,8 @@ and returns compact file-line citations as focused evidence for the main agent.
 - 🚀 **2026-06-12**: The paper was submitted to arXiv ([2606.14066](https://arxiv.org/abs/2606.14066)); the
   model weights followed.
 - ⚠️ **2026-06-30**: v4 was submitted as a withdrawal by the paper's first author, so the current version
-  serves no PDF. **Earlier versions remain fully available**, including
+  serves no PDF. The comment reads *"The current article involves some product IP issues and needs to be
+  withdrawn and re-approved"*. **Earlier versions remain fully available**, including
   [v3 HTML](https://arxiv.org/html/2606.14066v3) and [v3 PDF](https://arxiv.org/pdf/2606.14066v3).
 - ⚠️ **2026-07**: The upstream repository began returning 404 and the `microsoft/FastContext-1.0-*` weight
   repositories began returning 401. See [Model weights](#model-weights).
@@ -56,8 +59,9 @@ collection is empty, so weights have to come from community re-uploads:
 
 These are third-party uploads whose provenance can no longer be checked against the originals — verify a
 checkpoint yourself before trusting it with anything that matters. That is a supply-chain caution, not a
-licensing one: the weights were published under MIT, which is irrevocable for copies already distributed,
-so mirroring and redistributing them is permitted.
+licensing one: the weights were published under MIT, and removing the original repository does not
+retroactively revoke the licence already granted to everyone who received a copy. Redistribution is
+permitted, subject to MIT's condition that the copyright and permission notice travel with the copy.
 
 Serving one is not sufficient on its own: FastContext sends tool schemas on every turn and needs the
 endpoint to return OpenAI-style `tool_calls`. An endpoint that only completes text will not drive the agent
