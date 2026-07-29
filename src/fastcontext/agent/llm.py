@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any, Literal
 
@@ -6,8 +7,29 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from pydantic import BaseModel, model_serializer
 
 
-class RequestyAPIError(Exception):
-    """Exception for Requesty LLM API errors."""
+class LLMAPIError(Exception):
+    """Raised when a chat completion call fails, whatever the provider."""
+
+
+def _extra_body_from_env() -> dict | None:
+    """Provider-specific request fields, supplied explicitly rather than guessed.
+
+    This used to be `if "qwen" in self.model`, which sent Qwen serving options
+    to any model whose name happened to contain that substring. It matched
+    neither the FastContext checkpoints it was meant for -- their names do not
+    contain "qwen" -- nor the canonical `Qwen3-4B` spelling, which is
+    capitalised, while matching unrelated models that did.
+    """
+    raw = os.getenv("FC_EXTRA_BODY")
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise LLMAPIError(f"FC_EXTRA_BODY is not valid JSON: {e}") from e
+    if not isinstance(parsed, dict):
+        raise LLMAPIError(f"FC_EXTRA_BODY must be a JSON object, got {type(parsed).__name__}.")
+    return parsed
 
 
 type Role = Literal[
@@ -77,11 +99,9 @@ class LLM:
         reasoning_effort = os.getenv("FC_REASONING_EFFORT")
         if reasoning_effort:
             payload["reasoning_effort"] = reasoning_effort
-        if "qwen" in self.model:
-            payload["extra_body"] = {
-                "top_k": 20,
-                "chat_template_kwargs": {"enable_thinking": False},
-            }
+        extra_body = _extra_body_from_env()
+        if extra_body:
+            payload["extra_body"] = extra_body
 
         if tools:
             payload["tools"] = tools
@@ -134,4 +154,4 @@ class LLM:
                 role=role, content=content, reasoning_content=reasoning_content, model=self.model, usage=usage
             )
         except Exception as e:
-            raise RequestyAPIError(f"LLM API call failed: {str(e)}") from e
+            raise LLMAPIError(f"LLM API call failed: {str(e)}") from e

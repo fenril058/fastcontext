@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from fastcontext.agent.context import Context
-from fastcontext.agent.llm import LLM, Message, RequestyAPIError
+from fastcontext.agent.llm import LLM, Message, LLMAPIError
 from fastcontext.agent.tool import ToolSet
 from fastcontext.agent.utils import get_final_answer
 
@@ -59,7 +59,7 @@ class Agent:
                     messages=self.context.get_messages(),
                     tools=self.toolset.schema_list(),
                 )
-            except RequestyAPIError as e:
+            except LLMAPIError as e:
                 error_msg = f"LLM API call failed. So stopping the agent.\nError details:\n{str(e)}"
                 await self.context.add(Message(role="assistant", content=error_msg))
                 return error_msg

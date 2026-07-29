@@ -163,6 +163,10 @@ export FC_API_KEY="your-api-key"
 # optional: override default FastContext parameters
 export FC_MAX_TOKENS=4096
 export FC_TEMPERATURE=0.7
+
+# optional: provider-specific request fields, merged into the request as
+# extra_body. Must be a JSON object. Qwen-family servers, for example:
+export FC_EXTRA_BODY='{"top_k": 20, "chat_template_kwargs": {"enable_thinking": false}}'
 ```
 
 Benchmark runners may also pass separate FastContext credentials through `FASTCONTEXT_*` variables in
