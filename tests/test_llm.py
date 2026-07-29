@@ -2,10 +2,9 @@ import os
 
 import pytest
 
-from conftest import requires_llm
 from fastcontext.agent.llm import LLM
 
-pytestmark = [pytest.mark.requires_llm, requires_llm]
+pytestmark = pytest.mark.requires_llm
 
 
 def _llm(**kwargs) -> LLM:

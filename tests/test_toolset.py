@@ -14,8 +14,10 @@ async def test_toolset_schema_list():
 
 
 async def test_toolset_call_returns_one_message_per_tool_call(tmp_path):
-    target = tmp_path / "README.md"
-    target.write_text("line one\nline two\nline three\n", encoding="utf-8")
+    first = tmp_path / "first.md"
+    first.write_text("sentinel-alpha\n", encoding="utf-8")
+    second = tmp_path / "second.md"
+    second.write_text("sentinel-beta\n", encoding="utf-8")
 
     toolset = ToolSet(tools=[ReadTool()], work_dir=str(tmp_path))
     tool_call_msg = Message(
@@ -23,12 +25,8 @@ async def test_toolset_call_returns_one_message_per_tool_call(tmp_path):
         content=None,
         tool_call_id="call_1",
         tool_calls=[
-            FunctionCall(id="call_1_1", name="Read", arguments=json.dumps({"path": str(target)})),
-            FunctionCall(
-                id="call_1_2",
-                name="Read",
-                arguments=json.dumps({"path": str(tmp_path / "missing.md")}),
-            ),
+            FunctionCall(id="call_1_1", name="Read", arguments=json.dumps({"path": str(first)})),
+            FunctionCall(id="call_1_2", name="Read", arguments=json.dumps({"path": str(second)})),
         ],
     )
 
@@ -36,8 +34,27 @@ async def test_toolset_call_returns_one_message_per_tool_call(tmp_path):
 
     assert [m.tool_call_id for m in messages] == ["call_1_1", "call_1_2"]
     assert all(m.role == "tool" for m in messages)
-    assert "line two" in messages[0].content
-    assert "does not exist" in messages[1].content
+    assert "sentinel-alpha" in messages[0].content
+    assert "sentinel-beta" in messages[1].content
+
+
+async def test_toolset_surfaces_tool_failure(tmp_path):
+    missing = tmp_path / "missing.md"
+    toolset = ToolSet(tools=[ReadTool()], work_dir=str(tmp_path))
+    tool_call_msg = Message(
+        role="assistant",
+        content=None,
+        tool_call_id="call_1",
+        tool_calls=[FunctionCall(id="call_1_1", name="Read", arguments=json.dumps({"path": str(missing)}))],
+    )
+
+    messages = await toolset.call(tool_call_msg)
+
+    assert len(messages) == 1
+    # Assert on the error envelope and the offending path rather than on the
+    # exact prose, which ReadTool is free to reword.
+    assert "<system-reminder>" in messages[0].content
+    assert str(missing) in messages[0].content
 
 
 async def test_toolset_reports_unknown_tool():

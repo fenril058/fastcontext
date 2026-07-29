@@ -10,7 +10,6 @@ def _endpoint_configured() -> bool:
     return bool(base_url and model)
 
 
-requires_llm = pytest.mark.skipif(
-    not _endpoint_configured(),
-    reason="needs a live OpenAI-compatible endpoint (set FC_BASE_URL and FC_MODEL)",
-)
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    if item.get_closest_marker("requires_llm") and not _endpoint_configured():
+        pytest.skip("needs a live OpenAI-compatible endpoint (set FC_BASE_URL and FC_MODEL)")

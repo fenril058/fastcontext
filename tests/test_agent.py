@@ -2,13 +2,12 @@ import os
 
 import pytest
 
-from conftest import requires_llm
 from fastcontext.agent.agent import Agent
 from fastcontext.agent.llm import LLM
 from fastcontext.agent.tool import ToolSet
 from fastcontext.agent.tool.read import ReadTool
 
-pytestmark = [pytest.mark.requires_llm, requires_llm]
+pytestmark = pytest.mark.requires_llm
 
 
 async def test_agent(tmp_path):
@@ -40,4 +39,8 @@ async def test_agent(tmp_path):
         max_turns=5,
     )
 
-    assert result
+    # Agent.run swallows transport errors and returns them as the answer, so a
+    # bare truthiness check would go green against a dead endpoint.
+    assert "LLM API call failed" not in result
+    assert "No final answer after" not in result
+    assert result.strip()
