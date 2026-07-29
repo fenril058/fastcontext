@@ -309,3 +309,34 @@ def test_subprocess_timeout_stays_positive():
 
     assert SUBPROCESS_TIMEOUT >= 1
     assert SUBPROCESS_TIMEOUT <= MAX_TOOLRUN_TIMEOUT
+
+
+def test_read_description_states_the_real_line_truncation_width():
+    """read.md said 500; MAX_LINE_LENGTH has always been 2000."""
+    from fastcontext.agent.tool.read import MAX_LINE, MAX_LINE_LENGTH
+
+    description = ReadTool().schema()["function"]["description"]
+
+    assert f"{MAX_LINE_LENGTH} characters" in description
+    assert f"{MAX_LINE} lines" in description
+    assert "500" not in description
+
+
+def test_read_truncates_long_lines_at_the_documented_width(tmp_path):
+    from fastcontext.agent.tool.read import MAX_LINE_LENGTH
+
+    target = tmp_path / "long.txt"
+    target.write_text("x" * (MAX_LINE_LENGTH + 500) + "\n", encoding="utf-8")
+
+    output = asyncio.run(ReadTool().call(json.dumps({"path": str(target)}), cwd=str(tmp_path)))
+
+    assert "x" * MAX_LINE_LENGTH in output
+    assert "x" * (MAX_LINE_LENGTH + 1) not in output
+
+
+def test_tool_descriptions_do_not_promise_absent_capabilities():
+    glob_description = GlobTool().schema()["function"]["description"]
+
+    # glob.py never asks ripgrep to sort, and there is no Agent tool to delegate to.
+    assert "sorted by modification time" not in glob_description
+    assert "Agent tool" not in glob_description

@@ -1,6 +1,8 @@
 - Fast file pattern matching tool that works with any codebase size
 - Supports glob patterns like "**/*.js" or "src/**/*.ts"
-- Returns matching file paths sorted by modification time
+- Returns matching file paths in the order ripgrep walks the tree; that order is not meaningful, so do not read anything into which file comes first
+- Only files inside the working directory are reachable; a directory outside it is refused
+- Results are capped at 100 paths, and the output says so when it truncates. Narrow the directory or the pattern rather than expecting more
 - Use this tool when you need to find files by name patterns
-- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
-- You have the capability to call multiple tools in a single response. It is always better to speculatively perform multiple searches as a batch that are potentially useful.
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping, issue those calls yourself; there is no sub-agent to delegate to
+- You have the capability to call multiple tools in a single response, and they run concurrently. It is always better to speculatively perform multiple searches as a batch that are potentially useful.
