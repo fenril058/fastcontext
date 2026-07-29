@@ -18,7 +18,7 @@
 
 > **About this repository.** The work this is derived from has been withdrawn by its authors:
 > `github.com/microsoft/fastcontext` returns 404, the `microsoft/FastContext-1.0-*` model repositories on
-> Hugging Face return 401, and the paper was withdrawn from arXiv on 2026-06-30. No reason was published
+> Hugging Face return 401, and arXiv v4 is a withdrawal (earlier versions remain readable). No reason was published
 > for any of it. This fork is maintained independently under the MIT licence the code was published under.
 > It is not affiliated with or endorsed by Microsoft, and the paper's authors are not responsible for
 > anything changed here. See [Model weights](#model-weights) for what is still obtainable.
@@ -36,8 +36,9 @@ and returns compact file-line citations as focused evidence for the main agent.
 
 - 🚀 **2026-06-12**: The paper was submitted to arXiv ([2606.14066](https://arxiv.org/abs/2606.14066)); the
   model weights followed.
-- ⚠️ **2026-06-30**: The paper was withdrawn by its first author (v4). The abstract page remains, but no PDF
-  is served.
+- ⚠️ **2026-06-30**: v4 was submitted as a withdrawal by the paper's first author, so the current version
+  serves no PDF. **Earlier versions remain fully available**, including
+  [v3 HTML](https://arxiv.org/html/2606.14066v3) and [v3 PDF](https://arxiv.org/pdf/2606.14066v3).
 - ⚠️ **2026-07**: The upstream repository began returning 404 and the `microsoft/FastContext-1.0-*` weight
   repositories began returning 401. See [Model weights](#model-weights).
 
@@ -53,8 +54,10 @@ collection is empty, so weights have to come from community re-uploads:
 | [`mlx-community/FastContext-1.0-4B-SFT-8bit`](https://huggingface.co/mlx-community/FastContext-1.0-4B-SFT-8bit) | SFT | MLX, for Apple silicon. |
 | [`mitkox/FastContext-1.0-4B-RL-Q4_K_M-GGUF`](https://huggingface.co/mitkox/FastContext-1.0-4B-RL-Q4_K_M-GGUF) | RL | GGUF. Names `microsoft/FastContext-1.0-4B-RL` as its parent, which can no longer be fetched to check against. Used in the quick start below. |
 
-These are third-party uploads whose provenance can no longer be checked against the originals. Verify them
-yourself before trusting them with anything that matters.
+These are third-party uploads whose provenance can no longer be checked against the originals — verify a
+checkpoint yourself before trusting it with anything that matters. That is a supply-chain caution, not a
+licensing one: the weights were published under MIT, which is irrevocable for copies already distributed,
+so mirroring and redistributing them is permitted.
 
 Serving one is not sufficient on its own: FastContext sends tool schemas on every turn and needs the
 endpoint to return OpenAI-style `tool_calls`. An endpoint that only completes text will not drive the agent
