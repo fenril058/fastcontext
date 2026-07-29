@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        # requires-python is >=3.12,<4.0, so every supported minor is covered.
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # Windows exists to protect the shutil.which/UTF-8 work from #23; one
+          # interpreter is enough to catch a regression there.
+          - os: windows-latest
+            python-version: "3.12"
+
+    steps:
+      # The mini-swe-agent submodule is not needed: testpaths keeps pytest out
+      # of third_party, and checking it out only slows the job down.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: false
+
+      - name: Install ripgrep (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Install ripgrep (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ripgrep -y --no-progress
+
+      - name: Verify ripgrep is on PATH
+        # agent_factory refuses to build an agent without it, and the Grep and
+        # Glob tests shell out to it directly.
+        run: rg --version
+
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          # Without this the matrix is decorative: every job would silently use
+          # the runner's default interpreter.
+          python-version: ${{ matrix.python-version }}
+
+      - name: Confirm the interpreter the matrix asked for
+        run: uv run python -c "import sys; print(sys.version)"
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Run tests
+        # No FC_BASE_URL/FC_MODEL is set, so the four requires_llm tests skip.
+        run: uv run pytest -q
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: false
+
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      # No formatting gate: the project is configured for black (line_length
+      # 119) with no ruff formatter settings, so `ruff format --check` wants to
+      # rewrite 17 files. Enforcing a formatter is a separate decision.
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: Fail if uv.lock is stale
+        run: uv lock --check
