@@ -118,6 +118,43 @@ def test_grep_context_count_rejects_non_finite_numbers(tmp_path):
     assert "sentinel" in output
 
 
+def test_grep_count_mode_is_wired_up(tmp_path):
+    """The schema offers "count"; the implementation checked for "count_matches"."""
+    (tmp_path / "a.txt").write_text("sentinel\nsentinel\nother\n", encoding="utf-8")
+
+    params = {"pattern": "sentinel", "path": str(tmp_path), "output_mode": "count"}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+
+    # --count-matches reports the match total per file, not the matching lines.
+    assert output.strip().endswith(":2"), output
+
+
+def test_grep_default_output_mode_is_content(tmp_path):
+    """Omitting output_mode must behave exactly like asking for content.
+
+    It used to fall through to bare ripgrep output, which carries no line
+    numbers when stdout is captured rather than attached to a terminal — so
+    the default call shape produced output no citation could be built from.
+    """
+    (tmp_path / "a.txt").write_text("aaa\nbbb sentinel\nccc\n", encoding="utf-8")
+
+    omitted = asyncio.run(
+        GrepTool().call(json.dumps({"pattern": "sentinel", "path": str(tmp_path)}), cwd=str(tmp_path))
+    )
+    explicit = asyncio.run(
+        GrepTool().call(
+            json.dumps({"pattern": "sentinel", "path": str(tmp_path), "output_mode": "content"}),
+            cwd=str(tmp_path),
+        )
+    )
+
+    assert omitted == explicit
+    assert "2:bbb sentinel" in omitted, omitted
+
+    schema = GrepTool().schema()["function"]["parameters"]["properties"]
+    assert 'Defaults to "content"' in schema["output_mode"]["description"]
+
+
 def test_read_tool_path_traversal():
     read = ReadTool()
     cwd = "/tmp/"
