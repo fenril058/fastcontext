@@ -28,6 +28,7 @@ benchmark = [
     "litellm!=1.82.7,!=1.82.8,>=1.94.0",
     "platformdirs>=4.11.0",
     "prompt-toolkit>=3.0.53",
+    "pandas>=2.0.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
     "requests>=2.34.2",
@@ -35,7 +36,6 @@ benchmark = [
     "tenacity>=8.0.0",
     "textual>=8.2.8",
     "tqdm>=4.70.0",
-    "tree-sitter>=0.26.0",
     "typer>=0.27.0",
 ]
 
