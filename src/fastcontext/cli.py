@@ -1,9 +1,11 @@
 import argparse
 import asyncio
 import os
+import sys
 from datetime import datetime
 
 from fastcontext.agent.agent_factory import make_fastcontext_agent
+from fastcontext.agent.llm import LLMConfigError
 
 
 def main():
@@ -34,9 +36,15 @@ def main():
     agent = make_fastcontext_agent(trajectory_file=args.traj, work_dir=work_dir)
 
     prompt = args.query
-    final_output = asyncio.run(
-        agent.run(prompt=prompt, max_turns=args.max_turns, verbose=args.verbose, citation=args.citation)
-    )
+    try:
+        final_output = asyncio.run(
+            agent.run(prompt=prompt, max_turns=args.max_turns, verbose=args.verbose, citation=args.citation)
+        )
+    except LLMConfigError as e:
+        # A misconfigured environment is the caller's mistake, not a result.
+        # Exit non-zero so a script driving this notices.
+        print(f"Configuration error: {e}", file=sys.stderr)
+        raise SystemExit(2) from e
     print(final_output)
 
 

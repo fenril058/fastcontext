@@ -163,7 +163,21 @@ export FC_API_KEY="your-api-key"
 # optional: override default FastContext parameters
 export FC_MAX_TOKENS=4096
 export FC_TEMPERATURE=0.7
+
+# optional: provider-specific request fields, merged into the request as
+# extra_body. Must be a JSON object. Qwen-family servers, for example:
+export FC_EXTRA_BODY='{"top_k": 20, "chat_template_kwargs": {"enable_thinking": false}}'
 ```
+
+`FC_EXTRA_BODY` is merged last and wins over the other variables, so a key that duplicates one of them —
+`reasoning_effort`, say — overrides `FC_REASONING_EFFORT`. Use it for fields FastContext does not already
+expose. A malformed value stops the run with a configuration error and a non-zero exit status rather than
+being silently dropped.
+
+> **Upgrading.** Earlier versions attached `top_k` and `enable_thinking: false` automatically to any model
+> whose name contained the lowercase substring `qwen`. That guess is gone. If you were relying on it — your
+> model name would have to have been lowercase `qwen`, which excludes both `Qwen3-4B` and every FastContext
+> checkpoint — set `FC_EXTRA_BODY` as above.
 
 Benchmark runners may also pass separate FastContext credentials through `FASTCONTEXT_*` variables in
 `benchmark/evaluation/configs/example.env`.
