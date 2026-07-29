@@ -235,3 +235,41 @@ def test_relative_paths_still_resolve_against_the_work_dir(tmp_path, monkeypatch
     output = asyncio.run(ReadTool().call(json.dumps({"path": "ok.txt"}), cwd=str(box)))
 
     assert "innocuous" in output, output
+
+
+def test_unusable_paths_are_rejected_not_raised(tmp_path):
+    """An embedded NUL raises out of the stat call; it must not reach the model."""
+    output = asyncio.run(ReadTool().call(json.dumps({"path": "nul\x00path"}), cwd=str(tmp_path)))
+
+    assert "Permission error" in output
+    assert "ValueError" not in output
+
+
+def test_absolute_paths_outside_the_work_dir_are_rejected(tmp_path):
+    """Covers the drive-relative and UNC forms Windows can produce, too."""
+    box = tmp_path / "box"
+    box.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("TOP-SECRET-SENTINEL\n", encoding="utf-8")
+
+    output = asyncio.run(ReadTool().call(json.dumps({"path": str(outside)}), cwd=str(box)))
+
+    assert "TOP-SECRET-SENTINEL" not in output
+    assert "Permission error" in output
+
+
+def test_grep_reports_absolute_paths(tmp_path, monkeypatch):
+    """Deliberate consequence of handing ripgrep the resolved target.
+
+    The system prompt asks the model for absolute citations, so absolute
+    ripgrep output is what it should be reasoning from — especially when the
+    process is not sitting at work_dir.
+    """
+    (tmp_path / "a.txt").write_text("sentinel\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    output = asyncio.run(
+        GrepTool().call(json.dumps({"pattern": "sentinel", "path": "."}), cwd=str(tmp_path))
+    )
+
+    assert str(tmp_path / "a.txt") in output, output
