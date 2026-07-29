@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FastContext trajectories: these contain verbatim excerpts of whatever
+# repository was explored, plus the query text.
+.fastcontext/
