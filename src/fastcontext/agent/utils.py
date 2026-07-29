@@ -115,7 +115,7 @@ def format_citations(citations: list, validate: bool = True) -> str:
     return "<final_answer>\n" + "\n".join(formatted) + "\n</final_answer>"
 
 
-def get_final_answer(text: str) -> str:
+def get_final_answer(text: str | None) -> str:
     if not text:
         return ""
     if FINAL_ANSWER_RE.search(text) is None:

@@ -22,7 +22,11 @@ def main():
     )
     parser.add_argument("--max-turns", type=int, help="maximum number of turns", default=4)
     parser.add_argument("--verbose", action="store_true", help="whether to run in verbose mode")
-    parser.add_argument("--citation", action="store_true", help="Only return the citations in the final answer")
+    parser.add_argument(
+        "--citation",
+        action="store_true",
+        help="Return only the <final_answer> citation block; falls back to the full answer when none is emitted",
+    )
 
     args = parser.parse_args()
 
