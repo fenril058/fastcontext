@@ -1,5 +1,6 @@
 import asyncio
 import json
+import subprocess
 
 from fastcontext.agent.tool.glob import GlobTool
 from fastcontext.agent.tool.grep import GrepTool
@@ -64,14 +65,57 @@ def test_grep_pattern_with_leading_dash_still_matches(tmp_path):
     assert "value --> target" in output
 
 
-def test_glob_pattern_cannot_become_a_ripgrep_flag(tmp_path):
+def test_glob_keeps_the_pattern_inside_its_own_option(tmp_path, monkeypatch):
+    """Assert the argv shape directly.
+
+    Checking only that nothing was executed would pass against the old code
+    too, since --glob consumed the following argument either way.
+    """
+    import fastcontext.agent.tool.glob as glob_module
+
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(glob_module.subprocess, "run", fake_run)
+
+    asyncio.run(GlobTool().call(json.dumps({"directory": str(tmp_path), "pattern": "-*.py"}), cwd=str(tmp_path)))
+
+    command = seen["command"]
+    assert "--glob=-*.py" in command, command
+    assert "-*.py" not in command, "pattern must not appear as a standalone argument"
+    assert "--no-config" in command
+    assert command.index("--") < command.index(str(tmp_path))
+
+
+def test_grep_ignores_a_config_file_from_the_environment(tmp_path, monkeypatch):
+    """RIPGREP_CONFIG_PATH can supply --pre, which would undo the argv fix."""
     (tmp_path / "payload.sh").write_text(f"touch {tmp_path / 'PWNED'}\n", encoding="utf-8")
+    config = tmp_path / "rgcfg"
+    config.write_text("--pre=/bin/sh\n", encoding="utf-8")
+    monkeypatch.setenv("RIPGREP_CONFIG_PATH", str(config))
 
-    glob = GlobTool()
-    params = {"directory": str(tmp_path), "pattern": "--pre=/bin/sh"}
-    output = asyncio.run(glob.call(json.dumps(params), cwd=str(tmp_path)))
+    params = {"pattern": "sentinel", "path": str(tmp_path), "output_mode": "content"}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
 
-    assert not (tmp_path / "PWNED").exists(), f"ripgrep executed the payload: {output}"
+    assert not (tmp_path / "PWNED").exists(), f"ripgrep honoured the config file: {output}"
+
+
+def test_grep_context_count_rejects_non_finite_numbers(tmp_path):
+    """JSON permits 1e400, which decodes to float infinity and breaks int()."""
+    (tmp_path / "a.txt").write_text("sentinel\n", encoding="utf-8")
+
+    params = {
+        "pattern": "sentinel",
+        "path": str(tmp_path),
+        "output_mode": "content",
+        "-C": json.loads("1e400"),
+    }
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert "sentinel" in output
 
 
 def test_read_tool_path_traversal():

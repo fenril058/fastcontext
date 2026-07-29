@@ -10,7 +10,7 @@ def run(directory: str, pattern: str, cwd: str) -> str:
     # `--glob=value` and the `--` terminator keep a pattern or directory that
     # begins with a dash from being parsed as a ripgrep flag. See run_rg in
     # grep.py for why that matters.
-    command = [RG_PATH, "--files", f"--glob={pattern}", "--", directory]
+    command = [RG_PATH, "--no-config", "--files", f"--glob={pattern}", "--", directory]
     timeout = 10  # seconds
     try:
         output = subprocess.run(

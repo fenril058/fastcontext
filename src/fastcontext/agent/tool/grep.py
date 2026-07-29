@@ -121,12 +121,16 @@ def _context_flag(value) -> str | None:
     """Coerce a model-supplied context count to a non-negative integer."""
     try:
         return str(max(0, int(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: JSON permits 1e400, which decodes to float infinity.
         return None
 
 
 def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
-    command = [rg_path]
+    # --no-config: ripgrep otherwise reads options from the file named by
+    # RIPGREP_CONFIG_PATH, which can supply --pre and reintroduce program
+    # execution no matter how carefully this argv is built.
+    command = [rg_path, "--no-config"]
     if kwargs.get("glob"):
         # The `--flag=value` form is used throughout so that a value beginning
         # with a dash cannot be reinterpreted as the next flag.
