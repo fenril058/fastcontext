@@ -1,55 +1,55 @@
+import json
+
 from fastcontext.agent.llm import FunctionCall, Message
 from fastcontext.agent.tool import ToolSet
+from fastcontext.agent.tool.read import ReadTool
 
 
-async def test_toolset():
-    from fastcontext.agent.tool.read import ReadTool
-
-    toolset = ToolSet(tools=[ReadTool()])
+async def test_toolset_schema_list():
+    toolset = ToolSet(tools=[ReadTool()], work_dir=".")
     schema_list = toolset.schema_list()
-    print(schema_list)
-    assert len(schema_list) == 1
 
+    assert len(schema_list) == 1
+    assert schema_list[0]["function"]["name"] == "Read"
+
+
+async def test_toolset_call_returns_one_message_per_tool_call(tmp_path):
+    target = tmp_path / "README.md"
+    target.write_text("line one\nline two\nline three\n", encoding="utf-8")
+
+    toolset = ToolSet(tools=[ReadTool()], work_dir=str(tmp_path))
     tool_call_msg = Message(
         role="assistant",
         content=None,
         tool_call_id="call_1",
         tool_calls=[
-            FunctionCall(
-                id="call_1_1",
-                name="Read",
-                arguments='{"path": "/workspace/README", "offset": 1, "limit": 100}',
-            ),
+            FunctionCall(id="call_1_1", name="Read", arguments=json.dumps({"path": str(target)})),
             FunctionCall(
                 id="call_1_2",
                 name="Read",
-                arguments='{"path": "/workspace/README.md", "offset": 4, "limit": 100}',
+                arguments=json.dumps({"path": str(tmp_path / "missing.md")}),
             ),
         ],
     )
-    tools_result_messages = await toolset.call(tool_call_msg)
-    print(tools_result_messages)
-    for i, msg in enumerate(tools_result_messages):
-        print(f"=== msg {i} ===")
-        print(msg.content)
+
+    messages = await toolset.call(tool_call_msg)
+
+    assert [m.tool_call_id for m in messages] == ["call_1_1", "call_1_2"]
+    assert all(m.role == "tool" for m in messages)
+    assert "line two" in messages[0].content
+    assert "does not exist" in messages[1].content
 
 
-async def tools_schema_list():
-    import json
+async def test_toolset_reports_unknown_tool():
+    toolset = ToolSet(tools=[ReadTool()], work_dir=".")
+    tool_call_msg = Message(
+        role="assistant",
+        content=None,
+        tool_call_id="call_1",
+        tool_calls=[FunctionCall(id="call_1_1", name="Bash", arguments="{}")],
+    )
 
-    from fastcontext.agent.tool.glob import GlobTool
-    from fastcontext.agent.tool.grep import GrepTool
-    from fastcontext.agent.tool.read import ReadTool
+    messages = await toolset.call(tool_call_msg)
 
-    toolset = ToolSet(tools=[GrepTool(), GlobTool(), ReadTool()], work_dir="/workspace")
-    schema_list = toolset.schema_list()
-    print(schema_list)
-    with open("tools_schema.json", "w", encoding="utf-8") as f:
-        json.dump(schema_list, f, indent=4)
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(test_toolset())
-    asyncio.run(tools_schema_list())
+    assert len(messages) == 1
+    assert "not found" in messages[0].content

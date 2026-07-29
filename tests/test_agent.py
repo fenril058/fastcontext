@@ -1,20 +1,29 @@
 import os
 
+import pytest
+
+from conftest import requires_llm
 from fastcontext.agent.agent import Agent
 from fastcontext.agent.llm import LLM
 from fastcontext.agent.tool import ToolSet
 from fastcontext.agent.tool.read import ReadTool
 
+pytestmark = [pytest.mark.requires_llm, requires_llm]
 
-async def test_agent():
-    llm = LLM(
-        model=os.getenv("MODEL"),
-        api_key=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
-        debug=True,
+
+async def test_agent(tmp_path):
+    (tmp_path / "README.md").write_text(
+        "FastContext is a repository exploration subagent.\n",
+        encoding="utf-8",
     )
 
-    work_dir = "/workspace"
+    llm = LLM(
+        model=os.getenv("FC_MODEL") or os.getenv("MODEL"),
+        api_key=os.getenv("FC_API_KEY") or os.getenv("API_KEY"),
+        base_url=os.getenv("FC_BASE_URL") or os.getenv("BASE_URL"),
+    )
+
+    work_dir = str(tmp_path)
     toolset = ToolSet(tools=[ReadTool()], work_dir=work_dir)
 
     agent = Agent(
@@ -22,39 +31,13 @@ async def test_agent():
         system_prompt="You are a helpful coding assistant.",
         llm=llm,
         toolset=toolset,
-        trajectory_file="test_trajectory.log",
+        trajectory_file=str(tmp_path / "trajectory.jsonl"),
         work_dir=work_dir,
     )
 
     result = await agent.run(
-        "Please summarize file content of '/workspace/README.md' to one sentence.",
+        f"Please summarize file content of '{tmp_path / 'README.md'}' to one sentence.",
         max_turns=5,
-        verbose=True,
-    )
-    print(result)
-
-
-async def _run_agent(instance: dict, agent_config: dict) -> dict:
-    from fastcontext.agent.agent_factory import make_fastcontext_agent
-
-    max_turns = int(agent_config.get("max_turns", 4))
-    agent = make_fastcontext_agent(
-        trajectory_file=agent_config.get("trajectory_file", ".fastcontext/trajectory.jsonl"),
-        work_dir=agent_config.get("work_dir", "/testbed"),
     )
 
-    final_answer = await agent.run(prompt=instance["query"], max_turns=max_turns, verbose=True)
-    messages = agent.context.get_messages()
-
-    return {
-        "n_turn": agent.n_turn,
-        "messages": messages,
-        "tools": agent.toolset.schema_list(),
-        "final_answer": final_answer,
-    }
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(test_agent())
+    assert result
