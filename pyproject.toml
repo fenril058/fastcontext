@@ -60,6 +60,17 @@ markers = [
     "requires_llm: needs a live OpenAI-compatible endpoint (FC_BASE_URL / FC_MODEL)",
 ]
 
+[tool.ruff]
+# Without an explicit rule set, the lint gate is whatever the installed ruff
+# happens to default to, and that changes between releases: upgrading 0.14 to
+# 0.16 turned 41 previously-silent findings into CI failures. Pin the selection
+# so a ruff bump cannot redefine what this project enforces.
+line-length = 119
+extend-exclude = ["third_party"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
 [tool.isort]
 profile = "black"
 line_length = 119
