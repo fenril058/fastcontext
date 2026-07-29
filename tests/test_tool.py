@@ -36,6 +36,44 @@ def test_glob_tool():
     print(output)
 
 
+def test_grep_pattern_cannot_become_a_ripgrep_flag(tmp_path):
+    """A pattern beginning with a dash must be searched for, not parsed as a flag.
+
+    ripgrep's --pre runs an arbitrary program once per file. Before the pattern
+    was passed via -e, a pattern of "--pre=/bin/sh" turned this read-only search
+    tool into arbitrary code execution against the repository being explored.
+    """
+    (tmp_path / "payload.sh").write_text(f"touch {tmp_path / 'PWNED'}\n", encoding="utf-8")
+
+    grep = GrepTool()
+    params = {"pattern": "--pre=/bin/sh", "path": str(tmp_path), "output_mode": "content"}
+    output = asyncio.run(grep.call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert not (tmp_path / "PWNED").exists(), f"ripgrep executed the payload: {output}"
+    assert "preprocessor" not in output
+
+
+def test_grep_pattern_with_leading_dash_still_matches(tmp_path):
+    """Hardening must not break legitimate searches for dash-prefixed text."""
+    (tmp_path / "arrow.txt").write_text("value --> target\n", encoding="utf-8")
+
+    grep = GrepTool()
+    params = {"pattern": "-->", "path": str(tmp_path), "output_mode": "content"}
+    output = asyncio.run(grep.call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert "value --> target" in output
+
+
+def test_glob_pattern_cannot_become_a_ripgrep_flag(tmp_path):
+    (tmp_path / "payload.sh").write_text(f"touch {tmp_path / 'PWNED'}\n", encoding="utf-8")
+
+    glob = GlobTool()
+    params = {"directory": str(tmp_path), "pattern": "--pre=/bin/sh"}
+    output = asyncio.run(glob.call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert not (tmp_path / "PWNED").exists(), f"ripgrep executed the payload: {output}"
+
+
 def test_read_tool_path_traversal():
     read = ReadTool()
     cwd = "/tmp/"
