@@ -74,15 +74,3 @@ Resolving against the process directory once let a relative path read outside `w
 Route blocking work through `asyncio.to_thread` **and** give the subprocess its own `timeout=`.
 The outer guard abandons a call; only the inner one kills the process.
 
-## Working practice
-
-**Verify a new test fails against the unfixed source, not just that it passes against the fixed one.**
-A regression test asserting "no payload was executed" passed against the vulnerable code too, because the exploit it claimed to cover was never reachable by that path.
-Assert on argv, on file contents, on peak concurrency — on something the bug actually changes.
-
-**Run the smallest experiment that would disprove "this is trivial" before planning around it.**
-Seven items were classified as light; seven were heavier, always in the same direction.
-"Add a timeout" turned out to be "the timeout has never worked". "Fix a typo in the output mode" turned out to be "the default call shape cannot produce citations".
-
-**Check `git merge-base --is-ancestor main HEAD` before claiming a branch is rebased.**
-A local `main` goes stale as soon as a PR is merged through the web API.
