@@ -10,6 +10,12 @@ from fastcontext.agent.llm import Message
 
 MAX_TOOLRUN_TIMEOUT = 10
 
+# Subprocess-backed tools bound themselves below the outer guard, so a slow
+# ripgrep is reported as such and the process is actually killed, rather than
+# being abandoned by an outer timeout that cannot reach it. Clamped so that
+# lowering MAX_TOOLRUN_TIMEOUT cannot make this zero or negative.
+SUBPROCESS_TIMEOUT = max(1, MAX_TOOLRUN_TIMEOUT - 2)
+
 
 class ToolResult(BaseModel):
     tool_call_id: str
@@ -88,17 +94,31 @@ class ToolSet:
         if not msg.tool_calls:
             return []
 
-        tool_results: list[ToolResult] = []
-        for c in msg.tool_calls:
+        async def _guarded(index: int, c) -> ToolResult:
+            # Message.tool_calls is typed list[dict | FunctionCall], so the
+            # attribute reads below can raise before _single_tool_call's own
+            # handler is reached. Under gather that would abort the batch and
+            # leave siblings running, so nothing may escape this coroutine.
+            call_id = getattr(c, "id", None) or f"call_{index}"
             try:
-                result = await asyncio.wait_for(
-                    self._single_tool_call(c.name, c.arguments, c.id), timeout=MAX_TOOLRUN_TIMEOUT
+                name = c.name
+                return await asyncio.wait_for(
+                    self._single_tool_call(name, c.arguments, c.id), timeout=MAX_TOOLRUN_TIMEOUT
                 )
             except TimeoutError:
-                result = ToolResult(
-                    tool_call_id=c.id, failed=True, output=f"Tool `{c.name}` timed out after {MAX_TOOLRUN_TIMEOUT}s."
+                return ToolResult(
+                    tool_call_id=call_id,
+                    failed=True,
+                    output=f"Tool `{getattr(c, 'name', '?')}` timed out after {MAX_TOOLRUN_TIMEOUT}s.",
                 )
-            tool_results.append(result)
+            except Exception as e:
+                return ToolResult(tool_call_id=call_id, failed=True, output=f"Tool call is malformed: {e}")
+
+        # gather preserves argument order, so results still line up with the
+        # tool_calls they answer.
+        tool_results: list[ToolResult] = list(
+            await asyncio.gather(*(_guarded(i, c) for i, c in enumerate(msg.tool_calls)))
+        )
 
         tools_result_messages = []
         for tr in tool_results:
