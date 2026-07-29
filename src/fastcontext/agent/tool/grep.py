@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 from .tool import Tool
@@ -116,35 +117,38 @@ class GrepTool(Tool):
         return output
 
 
-def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
-    import subprocess
+def _context_flag(value) -> str | None:
+    """Coerce a model-supplied context count to a non-negative integer."""
+    try:
+        return str(max(0, int(value)))
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: JSON permits 1e400, which decodes to float infinity.
+        return None
 
-    command = [rg_path]
-    command.append(pattern)
-    if path:
-        command.append(path)
+
+def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
+    # --no-config: ripgrep otherwise reads options from the file named by
+    # RIPGREP_CONFIG_PATH, which can supply --pre and reintroduce program
+    # execution no matter how carefully this argv is built.
+    command = [rg_path, "--no-config"]
     if kwargs.get("glob"):
-        command.append("--glob")
-        command.append(kwargs["glob"])
+        # The `--flag=value` form is used throughout so that a value beginning
+        # with a dash cannot be reinterpreted as the next flag.
+        command.append(f"--glob={kwargs['glob']}")
     if kwargs.get("ignore_case"):
         command.append("--ignore-case")
     if kwargs.get("type"):
-        command.append("--type")
-        command.append(kwargs["type"])
+        command.append(f"--type={kwargs['type']}")
     if kwargs.get("multiline"):
         command.append("--multiline")
         command.append("--multiline-dotall")
     output_mode = kwargs.get("output_mode")
     if output_mode == "content":
-        if kwargs.get("before_context") is not None:
-            command.append("-B")
-            command.append(str(kwargs["before_context"]))
-        if kwargs.get("after_context") is not None:
-            command.append("-A")
-            command.append(str(kwargs["after_context"]))
-        if kwargs.get("context") is not None:
-            command.append("-C")
-            command.append(str(kwargs["context"]))
+        for flag, key in (("-B", "before_context"), ("-A", "after_context"), ("-C", "context")):
+            if kwargs.get(key) is not None:
+                count = _context_flag(kwargs[key])
+                if count is not None:
+                    command.append(f"{flag}{count}")
         if kwargs.get("line_number"):
             command.append("-n")
     elif output_mode == "files_with_matches":
@@ -156,6 +160,14 @@ def run_rg(rg_path: str, pattern: str, path: str, **kwargs) -> str:
     command.append("--heading")
     command.append("--color")
     command.append("never")
+
+    # Pass the pattern with -e and terminate option parsing with --, so neither
+    # the pattern nor the path can be read as a ripgrep flag. Without this, a
+    # pattern of "--pre=/bin/sh" makes ripgrep execute that program once per
+    # file, turning a read-only search tool into arbitrary code execution.
+    command.extend(["-e", pattern, "--"])
+    if path:
+        command.append(path)
 
     cwd = kwargs.get("cwd", str(Path.cwd()))
 
