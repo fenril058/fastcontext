@@ -6,6 +6,8 @@ from pathlib import Path
 from .tool import SUBPROCESS_TIMEOUT, Tool
 from .utils import RG_PATH, resolve_within
 
+MAX_OUTPUT_LINES = 100
+
 
 class GrepTool(Tool):
     name = "Grep"
@@ -55,9 +57,10 @@ class GrepTool(Tool):
                 "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.",
             },
             "head_limit": {
-                "type": "number",
-                "minimum": 0,
-                "description": 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Output is capped at 100 lines regardless; only a head_limit between 1 and 99 lowers that, and any other value leaves the cap at 100.',
+                "type": "integer",
+                "minimum": 1,
+                "maximum": MAX_OUTPUT_LINES - 1,
+                "description": f"Limit output to first N lines/entries, equivalent to \"| head -N\". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Output is capped at {MAX_OUTPUT_LINES} lines regardless; only a whole number between 1 and {MAX_OUTPUT_LINES - 1} lowers that. Any other value leaves the cap at {MAX_OUTPUT_LINES}.",
             },
             "multiline": {
                 "type": "boolean",
@@ -115,14 +118,11 @@ class GrepTool(Tool):
 
         if output.startswith("<system-reminder>"):
             # Diagnostics are not results. Truncating a long ripgrep error at
-            # 100 lines would strip the closing tag and leave the model with an
+            # the cap would strip the closing tag and leave the model with an
             # unterminated envelope followed by "Results truncated".
             return output
 
-        limit = 100
-        if head_limit is not None:
-            if head_limit < limit and head_limit > 0:
-                limit = head_limit
+        limit = _head_limit(head_limit, MAX_OUTPUT_LINES)
 
         lines = output.splitlines()
         if len(lines) > limit:
@@ -130,6 +130,31 @@ class GrepTool(Tool):
             truncated_hit = f"Results truncated to first {limit} lines"
             output += f"\n{truncated_hit}"
         return output
+
+
+def _head_limit(value, cap: int) -> int:
+    """Clamp a model-supplied head_limit to (0, cap].
+
+    Anything off-spec falls back to the cap rather than to a number derived
+    from it. Deriving is how the two bugs this replaced worked: `int(True)` is
+    1 and `int(1.9)` is 1, so either value cut the results to a single line
+    while looking like a deliberate limit.
+    """
+    if isinstance(value, bool):
+        return cap
+    if isinstance(value, int):
+        n = value
+    elif isinstance(value, float):
+        if not value.is_integer():  # also rejects inf and nan
+            return cap
+        n = int(value)
+    elif isinstance(value, str) and value.strip().isdigit():
+        # Tolerate a model that quoted the number, but not Python-specific
+        # spellings like "1_0" that JSON would never produce.
+        n = int(value.strip())
+    else:
+        return cap
+    return n if 0 < n < cap else cap
 
 
 def _context_flag(value) -> str | None:

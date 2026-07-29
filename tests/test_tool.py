@@ -2,6 +2,8 @@ import asyncio
 import json
 import subprocess
 
+import pytest
+
 from fastcontext.agent.tool.glob import GlobTool
 from fastcontext.agent.tool.grep import GrepTool
 from fastcontext.agent.tool.read import ReadTool
@@ -394,3 +396,41 @@ def test_glob_no_match_is_not_a_failure(tmp_path):
     )
 
     assert output == "No files found"
+
+
+@pytest.mark.parametrize(
+    "head_limit,expected",
+    [
+        (50, 50),
+        ("50", 50),          # numeric string, coerced like the context flags
+        (None, 100),
+        (True, 100),         # isinstance(True, int) holds; must not mean 1
+        (False, 100),
+        (0, 100),            # schema-valid but meaningless as a limit
+        (-5, 100),
+        (10**9, 100),
+        ("abc", 100),
+        ("1.9", 100),        # not a whole number, even quoted
+        ("1_0", 100),        # Python spelling JSON cannot produce
+        (" 10 ", 10),        # a quoted number is tolerated
+        (float("inf"), 100),
+        (float("nan"), 100),
+        (1.9, 100),          # int(1.9) is 1; must not silently return one line
+        (99.9, 100),
+        (50.0, 50),          # whole-valued float is fine
+        ({}, 100),
+        ([1], 100),
+    ],
+)
+def test_head_limit_is_clamped(head_limit, expected, tmp_path):
+    """A bad head_limit must fall back to the cap, never to a nonsense value.
+
+    `head_limit: true` used to set the limit to True, cut the results to a
+    single line, and report "Results truncated to first True lines".
+    """
+    (tmp_path / "a.txt").write_text("\n".join(f"sentinel {i}" for i in range(200)) + "\n", encoding="utf-8")
+
+    params = {"pattern": "sentinel", "path": str(tmp_path), "head_limit": head_limit}
+    output = asyncio.run(GrepTool().call(json.dumps(params), cwd=str(tmp_path)))
+
+    assert output.splitlines()[-1] == f"Results truncated to first {expected} lines"
