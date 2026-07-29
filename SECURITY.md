@@ -21,7 +21,9 @@ arguments. Findings in that path matter most here:
 
 - A tool argument escaping into the underlying `ripgrep` invocation.
 - Reads or searches escaping the working directory passed to the agent.
-- Anything that lets an explored repository cause writes, network access, or command execution.
+- Anything that lets an explored repository cause writes outside the configured trajectory file,
+  network access, or command execution. The trajectory is a deliberate write: every message and
+  every repository excerpt is appended to it, at `.fastcontext/` unless `--traj` says otherwise.
 
 The tools are meant to be read-only. Any way to make them otherwise is a vulnerability, including
 through prompt injection from a file in the repository being explored.
